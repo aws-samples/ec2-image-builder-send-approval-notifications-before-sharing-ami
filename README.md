@@ -73,6 +73,10 @@ You will find all the resources created on the [AWS CloudFormation console](http
 
 Make sure to confirm the the SNS Topic Subscription Email sent to the `ApproverEmail` and `TargetAccountEmail` specified.
 
+## Testing the solution
+
+Follow the instructions at [Blog](TODO: Insert blog URL) to test the solution.
+
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
