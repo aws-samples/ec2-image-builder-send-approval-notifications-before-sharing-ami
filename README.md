@@ -8,6 +8,71 @@ In this post, we will walk through the steps to enable approval notifications be
 
 ![Architecture](./images/figure1-architecture-diagram.png)
 
+## Deploying the solution
+
+This solution deploys the following components:
+
+* Image Builder related resources
+
+  * An Image Builder pipeline that builds an AMI from the latest Amazon Linux 2 image and installs the Amazon CloudWatch Agent on it
+  * An Amazon SNS Topic that receives notifications from the Image Builder pipeline. Note that the send approval AWS Lambda Function subscribes to this SNS topic.
+
+* Networking resources for the EC2 instance launched by Image Builder
+
+  * An Amazon VPC with one public subnet
+
+* Send approval email Lambda Function and SNS topic
+
+  * An AWS Lambda function subscribed to the SNS topic that Image Builder publishes to. This Lambda function retrieves the AMI ID and publishes to another SNS topic, notifying email subscribers that the AMI has been created.
+  * An Amazon SNS Topic that the Lambda Function above publishes to. This topic has email subscribers.
+  * An IAM role to grant the AWS Lambda function permissions to publish to the SNS topic.
+
+* Share AMI Lambda Function and Amazon API Gateway
+
+  * An API Gateway API that triggers the Lambda Function upon a GET request by the user
+  * AWS Lambda function that shares the AMI to the target accounts and publishes to another SNS topic, notifying email subscribers that the AMI has been shared.
+  * An Amazon SNS Topic that the Lambda Function above publishes to. This topic has email subscribers.
+  * An IAM role to grant the AWS Lambda function permissions to publish to the SNS topic and modify image attributes.
+
+### Requirements
+
+**Note:** For easiest deployment you can create a [Cloud9 environment](https://docs.aws.amazon.com/cloud9/latest/user-guide/create-environment.html), it already has the below requirements installed.
+
+* [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
+* [Python 3 installed](https://www.python.org/downloads/)
+* [SAM CLI installed](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
+
+### Deployment Steps
+
+Once you've installed the requirements listed above, open a terminal session as you'll need to run the `sam deploy` command to deploy the solution.
+
+```bash
+sam deploy \
+    --template-file template.yaml \
+    --stack-name ec2-image-builder-approver-notifications \
+    --capabilities CAPABILITY_IAM \
+    --resolve-s3 \
+    --parameter-overrides \
+    ApproverEmail=<String> \
+    TargetAccountEmail=<String> \
+    TargetAccountIds=<CommaDelimitedList>
+
+# Example
+sam deploy \
+    --template-file template.yaml \
+    --stack-name ec2-image-builder-approver-notifications \
+    --capabilities CAPABILITY_IAM \
+    --resolve-s3 \
+    --parameter-overrides \
+    ApproverEmail="exampleapprover@example.com" \
+    TargetAccountEmail="exampletarget@example.com" \
+    TargetAccountIds="123456789123,987654321987"
+```
+
+You will find all the resources created on the [AWS CloudFormation console](https://console.aws.amazon.com/cloudformation/home?#/stacks/).
+
+Make sure to confirm the the SNS Topic Subscription Email sent to the `ApproverEmail` and `TargetAccountEmail` specified.
+
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
