@@ -101,6 +101,13 @@ The cost of the solution is covered completely by the free tier if your account 
 * Amazon API Gateway free tier includes one million API calls received for REST APIs. You can find additional information about pricing [here](https://aws.amazon.com/api-gateway/pricing/).
 * Cloudwatch Logs usage is covered by the free tier if you use less than 5GB of data. More info [here](https://aws.amazon.com/cloudwatch/pricing/).
 
+## References
+
+We invite you to experiment with different AMIs created using Image Builder, and with different Image Builder components.
+
+* Check out this [GitHub repository for various examples that use Image Builder](https://github.com/aws-samples/amazon-ec2-image-builder-samples).
+* Check out this [Solution on EC2 Auto Scaling Instance Refresh](https://github.com/aws-samples/ec2-auto-scaling-instance-refresh-sample).
+
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
