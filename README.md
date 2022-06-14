@@ -77,6 +77,20 @@ Make sure to confirm the the SNS Topic Subscription Email sent to the `ApproverE
 
 Follow the instructions at [Blog](TODO: Insert blog URL) to test the solution.
 
+## Clean up
+
+Once you're done, you can delete the solution by running the following command
+
+```
+sam delete --stack-name ec2-image-builder-approver-notifications --no-prompts --region <region>
+```
+
+In addition, don't forget to delete the following artifacts too:
+
+* Derregister the AMI id that was created by Image Builder.
+* Delete the [CloudWatch log groups](https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups) for the Lambda functions. You'll identify it with the name `/aws/lambda/ec2-image-builder-approve*`.
+* Consider deleting the Amazon S3 bucket used to store the packaged Lambda artifact.
+
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
