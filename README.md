@@ -91,6 +91,16 @@ In addition, don't forget to delete the following artifacts too:
 * Delete the [CloudWatch log groups](https://console.aws.amazon.com/cloudwatch/home#logsV2:log-groups) for the Lambda functions. You'll identify it with the name `/aws/lambda/ec2-image-builder-approve*`.
 * Consider deleting the Amazon S3 bucket used to store the packaged Lambda artifact.
 
+## Cost of the solution
+
+The cost of the solution is covered completely by the free tier if your account is less than 12 months old (and you don't already exceed free tier limits like the 750 t3.micro hours monthly). Otherwise, the cost of testing the solution is less than $0.25 if running for an hour. Costs break-down below:
+* By default, this solution uses t3.micro instances, which cost $0.0104 / hour each in us-east-1. You can find all regions pricing [here](https://aws.amazon.com/ec2/pricing/on-demand/). t3.micro is eligible for [AWS Free tier](https://aws.amazon.com/free/?all-free-tier.sort-by=item.additionalFields.SortRank&all-free-tier.sort-order=asc)
+* There is no extra charge for EC2 Image Builder, you only pay for the underlying EC2 resources. By default, this solution uses t3.micro instances to build AMIs.
+* There are no charges for SNS Lambda notifications. If you subscribe your e-mail to the SNS topic, the first 1,000 notifications are free. More details [here](https://aws.amazon.com/sns/pricing/)
+* AWS Lambda first 1 Million requests per month are covered by the [AWS Free tier](https://aws.amazon.com/free/?all-free-tier.sort-by=item.additionalFields.SortRank&all-free-tier.sort-order=asc).
+* Amazon API Gateway free tier includes one million API calls received for REST APIs. You can find additional information about pricing [here](https://aws.amazon.com/api-gateway/pricing/).
+* Cloudwatch Logs usage is covered by the free tier if you use less than 5GB of data. More info [here](https://aws.amazon.com/cloudwatch/pricing/).
+
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
