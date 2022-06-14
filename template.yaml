@@ -10,7 +10,79 @@ Parameters:
     Description: Prefix given to resource names
     Default: blog
 
+  InstanceType:
+    Type: String
+    Description: Image Builder instance type
+    Default: t3.micro
+
 Resources:
+  #============================#
+  # EC2 Image Builder resources
+  #============================#
+  EC2ImageBuilderPipeline:
+    Type: AWS::ImageBuilder::ImagePipeline
+    Properties:
+      Name: !Sub ${NamingPrefix}-image-pipeline
+      ImageRecipeArn: !Ref EC2ImageBuilderRecipe
+      InfrastructureConfigurationArn: !Ref EC2ImageBuilderInfrastructureConfiguration
+      DistributionConfigurationArn: !Ref EC2ImageBuilderDistributionConfiguration
+
+  EC2ImageBuilderRecipe:
+    Type: AWS::ImageBuilder::ImageRecipe
+    Properties:
+      Name: !Sub ${NamingPrefix}-recipe
+      Description: This recipe installs the Amazon CloudWatch Agent on an Amazon Linux 2 AMI
+      ParentImage: !Sub arn:${AWS::Partition}:imagebuilder:${AWS::Region}:aws:image/amazon-linux-2-x86/x.x.x
+      Components:
+      - ComponentArn: !Sub arn:aws:imagebuilder:${AWS::Region}:aws:component/amazon-cloudwatch-agent-linux/x.x.x
+      Version: 1.0.0
+
+  EC2ImageBuilderInfrastructureConfiguration:
+    Type: AWS::ImageBuilder::InfrastructureConfiguration
+    Properties:
+      Name: !Sub ${NamingPrefix}-infra-config
+      InstanceTypes:
+      - !Ref InstanceType
+      InstanceProfileName: !Ref EC2ImageBuilderIAMInstanceProfile
+      SubnetId: !Ref PublicSubnet1
+      SecurityGroupIds:
+      - !GetAtt VPC.DefaultSecurityGroup
+      TerminateInstanceOnFailure: true
+
+  EC2ImageBuilderDistributionConfiguration:
+    Type: AWS::ImageBuilder::DistributionConfiguration
+    Properties:
+      Name: !Sub ${NamingPrefix}-distribution-config
+      Distributions:
+      - AmiDistributionConfiguration:
+          Name: amazon-linux2-golden-ami - {{ imagebuilder:buildDate }}
+          LaunchPermissionConfiguration:
+            UserIds:
+            - !Ref AWS::AccountId
+        Region: !Ref AWS::Region
+
+  EC2ImageBuilderIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/EC2InstanceProfileForImageBuilder
+      - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  EC2ImageBuilderIAMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+      - !Ref EC2ImageBuilderIAMRole
+
   VPC:
     Type: AWS::EC2::VPC
     Properties:
