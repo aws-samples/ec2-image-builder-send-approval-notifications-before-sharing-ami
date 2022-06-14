@@ -15,6 +15,10 @@ Parameters:
     Description: Image Builder instance type
     Default: t3.micro
 
+  ApproverEmail:
+    Type: String
+    Description: Approver account email address that receives email notifications when a new AMI is created by image builder. Approver to click to approve sharing of AMI to target accounts.
+
 Resources:
   #============================#
   # EC2 Image Builder resources
@@ -44,6 +48,7 @@ Resources:
       InstanceTypes:
       - !Ref InstanceType
       InstanceProfileName: !Ref EC2ImageBuilderIAMInstanceProfile
+      SnsTopicArn: !Ref ImageBuilderSNSTopic
       SubnetId: !Ref PublicSubnet1
       SecurityGroupIds:
       - !GetAtt VPC.DefaultSecurityGroup
@@ -82,6 +87,14 @@ Resources:
     Properties:
       Roles:
       - !Ref EC2ImageBuilderIAMRole
+
+  ImageBuilderSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+      - Endpoint: !GetAtt SendApprovalEmailHandler.Arn
+        Protocol: lambda
+      KmsMasterKeyId: alias/aws/sns
 
   VPC:
     Type: AWS::EC2::VPC
@@ -138,3 +151,62 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet1
+
+  #=================================#
+  # Send approval email resources
+  #=================================#
+  SNSSendApprovalEmailLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt SendApprovalEmailHandler.Arn
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref ImageBuilderSNSTopic
+
+  SendApprovalEmailHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: send_approval_email_function.lambda_handler
+      Runtime: python3.9
+      MemorySize: 128
+      Timeout: 300
+      Role: !GetAtt SendApprovalEmailLambdaRole.Arn
+      CodeUri: SendApprovalEmailHandler/
+      Environment:
+        Variables:
+          APPROVER_EMAIL: !Ref ApproverEmail
+          SNS_TOPIC_ARN: !Ref ApproverSNSEmailTopic
+          INVOKE_URL: !Sub https://${APIGatewayShareAMI}.execute-api.${AWS::Region}.amazonaws.com/${APIGatewayShareAMI.Stage}
+
+  SendApprovalEmailLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /blog/
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: sns-publish
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - sns:Publish
+            Resource: !Ref ApproverSNSEmailTopic
+
+  ApproverSNSEmailTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+      - Endpoint: !Ref ApproverEmail
+        Protocol: email
+      KmsMasterKeyId: alias/aws/sns
