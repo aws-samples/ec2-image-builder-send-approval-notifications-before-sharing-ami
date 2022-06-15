@@ -75,7 +75,7 @@ Make sure to confirm the the SNS Topic Subscription Email sent to the `ApproverE
 
 ## Testing the solution
 
-Follow the instructions at [Blog](TODO: Insert blog URL) to test the solution.
+Follow the instructions at [Blog](https://aws.amazon.com/blogs/compute/adding-approval-notifications-to-ec2-image-builder-before-sharing-amis/) to test the solution.
 
 ## Clean up
 
