@@ -145,6 +145,11 @@ Resources:
       Tags:
       - Key: Name
         Value: !Sub ${NamingPrefix}-vpc
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W60
+            reason: Flow Log not required for blog since only the CloudWatch agent is instsalled on the launched EC2 instance
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -169,6 +174,11 @@ Resources:
       Tags:
       - Key: Name
         Value: !Sub ${NamingPrefix}-public-subnet
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W33
+            reason: Public Subnet used to reduce the need for a Nat Gateway, reducing the cost of the blog
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -259,6 +269,15 @@ Resources:
               'statusCode': 200,
               'body': 'SSM Automation Document triggered'
             }
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Lambda function has permissions to write to CloudWatch logs via a Managed Policy that allows logs:CreateLogStream and logs:PutLogEvents to the CloudWatch Log Group ARN
+          - id: W89
+            reason: If Lambda is in a VPC, it requires a VPC endpoint to call the start_automation_execution API (incurs cost), or requires security group egress to 0.0.0.0/0.
+          - id: W92
+            reason: ReservedConcurrentExecutions not needed since this function can either be triggered only once by this blog or potentially be scaled to more Image Builder Pipelines
 
   StartAutomationExecutionHandlerLambdaRole:
     Type: AWS::IAM::Role
@@ -346,6 +365,11 @@ Resources:
     Properties:
       LogGroupName: !Join ['/', ['/aws/lambda', !Ref StartAutomationExecutionHandler]]
       RetentionInDays: !Ref LambdaCloudWatchLogGroupRetentionInDays
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: Logs do not contain sensitve data.
 
   #=================================#
   # SSM Automation Document Resources
@@ -504,6 +528,15 @@ Resources:
               'statusCode': 200,
               'body': 'Successfully shared AMI'
             }
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: Lambda function has permissions to write to CloudWatch logs via a Managed Policy that allows logs:CreateLogStream and logs:PutLogEvents to the CloudWatch Log Group ARN
+          - id: W89
+            reason: If Lambda is in a VPC, it requires a VPC endpoint to call the start_automation_execution API (incurs cost), or requires security group egress to 0.0.0.0/0.
+          - id: W92
+            reason: ReservedConcurrentExecutions not needed since this function can either be triggered only once by this blog or potentially be scaled to more Image Builder Pipelines
 
   ShareAMIHandlerLambdaRole:
     Type: AWS::IAM::Role
@@ -550,6 +583,11 @@ Resources:
     Properties:
       LogGroupName: !Join ['/', ['/aws/lambda', !Ref ShareAMIHandler]]
       RetentionInDays: !Ref LambdaCloudWatchLogGroupRetentionInDays
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: Logs do not contain sensitve data.
 
   TargetAccountSNSEmailTopic:
     Type: AWS::SNS::Topic
