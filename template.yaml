@@ -523,3 +523,8 @@ Resources:
       - Endpoint: !Ref TargetAccountEmail
         Protocol: email
       KmsMasterKeyId: alias/aws/sns
+
+Outputs:
+  ApproverSSMExecuteRoleName:
+    Description: Name of the IAM Role that can approve SSM Automation Approval Step
+    Value: !Ref ApproverSSMExecuteRole
