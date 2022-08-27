@@ -60,7 +60,7 @@ Resources:
       Description: This recipe installs the Amazon CloudWatch Agent on an Amazon Linux 2 AMI
       ParentImage: !Sub arn:${AWS::Partition}:imagebuilder:${AWS::Region}:aws:image/amazon-linux-2-x86/x.x.x
       Components:
-      - ComponentArn: !Sub arn:aws:imagebuilder:${AWS::Region}:aws:component/amazon-cloudwatch-agent-linux/x.x.x
+      - ComponentArn: !Sub arn:${AWS::Partition}:imagebuilder:${AWS::Region}:aws:component/amazon-cloudwatch-agent-linux/x.x.x
       Version: 1.0.0
 
   EC2ImageBuilderInfrastructureConfiguration:
