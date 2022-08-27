@@ -118,6 +118,24 @@ Resources:
         Protocol: lambda
       KmsMasterKeyId: alias/aws/sns
 
+  ImageBuilderSNSTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    DependsOn: EC2ImageBuilderInfrastructureConfiguration
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Deny
+            Principal: "*"
+            Action:
+              - sns:Publish
+            Resource: !Ref ImageBuilderSNSTopic
+            Condition:
+              StringNotEquals:
+                aws:PrincipalArn: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/imagebuilder.amazonaws.com/AWSServiceRoleForImageBuilder
+      Topics:
+        - !Ref ImageBuilderSNSTopic
+
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -378,6 +396,23 @@ Resources:
         Protocol: email
       KmsMasterKeyId: alias/aws/sns
 
+  ApproverSNSEmailTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Deny
+            Principal: "*"
+            Action:
+              - sns:Publish
+            Resource: !Ref ApproverSNSEmailTopic
+            Condition:
+              StringNotEquals:
+                aws:PrincipalArn: !GetAtt AutomationServiceRole.Arn
+      Topics:
+        - !Ref ApproverSNSEmailTopic
+
   ManualApprovalSSMDocument:
     Type: AWS::SSM::Document
     Properties:
@@ -523,6 +558,23 @@ Resources:
       - Endpoint: !Ref TargetAccountEmail
         Protocol: email
       KmsMasterKeyId: alias/aws/sns
+
+  TargetAccountSNSEmailTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Deny
+            Principal: "*"
+            Action:
+              - sns:Publish
+            Resource: !Ref TargetAccountSNSEmailTopic
+            Condition:
+              StringNotEquals:
+                aws:PrincipalArn: !GetAtt ShareAMIHandlerLambdaRole.Arn
+      Topics:
+        - !Ref TargetAccountSNSEmailTopic
 
 Outputs:
   ApproverSSMExecuteRoleName:
