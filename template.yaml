@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: 2010-09-09
-Transform: AWS::Serverless-2016-10-31
-Description: >
-  Add a manual approval step where an email is sent to users prompting them to
-  approve and share the AMI or enter the EC2 console to test the AMI
+
+Description: >-
+  After Golden Images are built from EC2 Image Builder Pipelines, a manual approval step
+  is added before AMIs are shared to different accounts
 
 Parameters:
   NamingPrefix:
@@ -15,6 +15,11 @@ Parameters:
     Description: Image Builder instance type
     Default: t3.micro
 
+  LambdaCloudWatchLogGroupRetentionInDays:
+    Type: Number
+    Description: The number of days to retain the log events in the specified log group.
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 2192, 2557, 2922, 3288, 3653]
+
   TargetAccountIds:
     Type: CommaDelimitedList
     Description: Account IDs within the same region for shared AMIs.
@@ -26,6 +31,15 @@ Parameters:
   TargetAccountEmail:
     Type: String
     Description: Target account email address that receives updates whenever a new image has been shared with their account.
+
+  ApprovalTimeout:
+    Type: Number
+    Description: Specifies the execution timeout value for the aws:approve action in seconds
+    Default: 3600
+
+  IAMPrincipalAssumeRoleARN:
+    Type: String
+    Description: ARN of the IAM principal that will assume the approver role.
 
 Resources:
   #============================#
@@ -100,7 +114,7 @@ Resources:
     Type: AWS::SNS::Topic
     Properties:
       Subscription:
-      - Endpoint: !GetAtt SendApprovalEmailHandler.Arn
+      - Endpoint: !GetAtt StartAutomationExecutionHandler.Arn
         Protocol: lambda
       KmsMasterKeyId: alias/aws/sns
 
@@ -161,32 +175,74 @@ Resources:
       SubnetId: !Ref PublicSubnet1
 
   #=================================#
-  # Send approval email resources
+  # Trigger SSM Automation Document resources
   #=================================#
-  SNSSendApprovalEmailLambdaPermission:
-    Type: AWS::Lambda::Permission
+  StartAutomationExecutionHandler:
+    Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !GetAtt SendApprovalEmailHandler.Arn
-      Action: lambda:InvokeFunction
-      Principal: sns.amazonaws.com
-      SourceArn: !Ref ImageBuilderSNSTopic
-
-  SendApprovalEmailHandler:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: send_approval_email_function.lambda_handler
+      Handler: index.lambda_handler
       Runtime: python3.9
-      MemorySize: 128
-      Timeout: 300
-      Role: !GetAtt SendApprovalEmailLambdaRole.Arn
-      CodeUri: SendApprovalEmailHandler/
+      Description: This lambda triggers an SSM Automation Document with a Approval Step
       Environment:
         Variables:
-          APPROVER_EMAIL: !Ref ApproverEmail
-          SNS_TOPIC_ARN: !Ref ApproverSNSEmailTopic
-          INVOKE_URL: !Sub https://${APIGatewayShareAMI}.execute-api.${AWS::Region}.amazonaws.com/${APIGatewayShareAMI.Stage}
+          SSM_DOCUMENT_NAME: !Ref ManualApprovalSSMDocument
+      Role: !GetAtt StartAutomationExecutionHandlerLambdaRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          import logging
+          import os
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
 
-  SendApprovalEmailLambdaRole:
+          client = boto3.client('ssm')
+
+          SSM_DOCUMENT_NAME = os.environ['SSM_DOCUMENT_NAME']
+
+          def lambda_handler(event, context):
+            ib_notification = json.loads(event['Records'][0]['Sns']['Message'])
+
+            if ib_notification['state']['status'] != 'AVAILABLE':
+              warning_message = 'No action taken. EC2 Image not available.'
+              logging.warning(warning_message)
+              return {
+                'statusCode': 500,
+                'body': warning_message
+              }
+
+            ami_event = ib_notification['outputResources']['amis'][0]
+            ami_name = ami_event['name']
+            ami_id = ami_event['image']
+            logger.info(f'AMI ID: {ami_id}')
+
+            # Trigger SSM Automation Document
+            try:
+              client.start_automation_execution(
+                DocumentName = SSM_DOCUMENT_NAME,
+                Parameters = {
+                  'amiId': [
+                    ami_id,
+                  ],
+                  'amiName': [
+                    ami_name,
+                  ],
+                },
+              )
+              logger.info('SSM Automation Document triggered')
+            except Exception as e:
+              logger.error(e)
+              return {
+                'statusCode': 500,
+                'body': 'Something went wrong went triggering SSM Automation Document'
+              }
+
+            return {
+              'statusCode': 200,
+              'body': 'SSM Automation Document triggered'
+            }
+
+  StartAutomationExecutionHandlerLambdaRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -198,18 +254,121 @@ Resources:
             - lambda.amazonaws.com
           Action:
           - sts:AssumeRole
-      Path: /blog/
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-      - PolicyName: sns-publish
-        PolicyDocument:
-          Version: 2012-10-17
-          Statement:
+      Path: /
+
+  StartAutomationExecutionPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - ssm:StartAutomationExecution
+          # https://docs.aws.amazon.com/service-authorization/latest/reference/list_awssystemsmanager.html#awssystemsmanager-automation-definition
+          Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ManualApprovalSSMDocument}*
+        - Effect: Allow
+          Action:
+          - iam:PassRole
+          Resource: !GetAtt AutomationServiceRole.Arn
+          Condition:
+            StringEquals:
+              iam:PassedToService: ssm.amazonaws.com
+            StringLike:
+              iam:AssociatedResourceARN: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ManualApprovalSSMDocument}*
+        # https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/iam-identity-based-access-control-cwl.html
+        - Effect: Allow
+          Action:
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Resource: !GetAtt StartAutomationExecutionHandlerLogGroup.Arn
+      Roles:
+        - !Ref StartAutomationExecutionHandlerLambdaRole
+
+  StartAutomationExecutionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt StartAutomationExecutionHandler.Arn
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref ImageBuilderSNSTopic
+
+  ApproverSSMExecuteRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref IAMPrincipalAssumeRoleARN
+            Action:
+              - sts:AssumeRole
+      Path: /
+
+  ApproverSSMExecutePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
           - Effect: Allow
             Action:
-            - sns:Publish
-            Resource: !Ref ApproverSNSEmailTopic
+              - ssm:GetAutomationExecution
+              - ssm:SendAutomationSignal
+              - ssm:DescribeAutomationStepExecutions
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-execution/*
+      Roles:
+        - !Ref ApproverSSMExecuteRole
+
+  StartAutomationExecutionHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join ['/', ['/aws/lambda', !Ref StartAutomationExecutionHandler]]
+      RetentionInDays: !Ref LambdaCloudWatchLogGroupRetentionInDays
+
+  #=================================#
+  # SSM Automation Document Resources
+  #=================================#
+  # https://docs.aws.amazon.com/systems-manager/latest/userguide/automation-cf.html#automation-cf-create
+  AutomationServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ssm.amazonaws.com
+          Action: sts:AssumeRole
+          Condition:
+            StringEquals:
+              aws:SourceAccount: !Ref AWS::AccountId
+            ArnLike:
+              aws:SourceArn: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-execution/*
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonSSMAutomationRole
+      Path: /
+
+  AutomationServicePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - sns:Publish
+          Resource: !Ref ApproverSNSEmailTopic
+        - Effect: Allow
+          Action:
+          - lambda:InvokeFunction
+          Resource: !GetAtt ShareAMIHandler.Arn
+      Roles:
+        - !Ref AutomationServiceRole
 
   ApproverSNSEmailTopic:
     Type: AWS::SNS::Topic
@@ -219,40 +378,97 @@ Resources:
         Protocol: email
       KmsMasterKeyId: alias/aws/sns
 
+  ManualApprovalSSMDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Automation
+      DocumentFormat: YAML
+      Content:
+        description: Automation document with a manual approval step that if approved, triggers a Lambda that shares an AMI
+        schemaVersion: '0.3'
+        assumeRole: "{{ assumeRole }}"
+        parameters:
+          assumeRole:
+            type: String
+            description: The IAM Role that the Automation Document Assumes
+            default: !GetAtt AutomationServiceRole.Arn
+          amiId:
+            type: String
+            description: The AMI ID of the Golden Image
+          amiName:
+            type: String
+            description: The AMI Name of the Golden Image
+        mainSteps:
+        - name: manualApprovalStep
+          action: aws:approve
+          timeoutSeconds: !Ref ApprovalTimeout
+          onFailure: Abort
+          inputs:
+            NotificationArn: !Ref ApproverSNSEmailTopic
+            Message: 'AMI Name: {{amiName}}, with ID: {{amiId}} has been created. Please verify the AMI before approving or denying it.'
+            MinRequiredApprovals: 1
+            Approvers:
+            - !GetAtt ApproverSSMExecuteRole.Arn
+        - name: shareAMI
+          action: aws:invokeLambdaFunction
+          inputs:
+            FunctionName: !Ref ShareAMIHandler
+            Payload: '{"ami_id":"{{amiId}}"}'
+          isEnd: true
+
   #=================================#
   # Share AMI resources
   #=================================#
-  APIGatewayShareAMI:
-    Type: AWS::Serverless::Api
-    Properties:
-      Name: SharedAMIApproval
-      StageName: Dev
-
   ShareAMIHandler:
-    Type: AWS::Serverless::Function
+    Type: AWS::Lambda::Function
     Properties:
-      Events:
-        ApiEvent:
-          Type: Api
-          Properties:
-            Path: /
-            Method: get
-            RequestParameters:
-            - method.request.querystring.ami:
-                Required: true
-                Caching: false
-            RestApiId:
-              Ref: APIGatewayShareAMI
-      Handler: share_ami_function.lambda_handler
-      Runtime: python3.8
-      MemorySize: 128
-      Timeout: 300
-      Role: !GetAtt ShareAMIHandlerLambdaRole.Arn
-      CodeUri: ShareAMIHandler/
+      Handler: index.lambda_handler
+      Runtime: python3.9
+      Description: This lambda triggers an SSM Automation Document with a Approval Step
       Environment:
         Variables:
           SNS_TOPIC_ARN: !Ref TargetAccountSNSEmailTopic
           TARGET_ACCOUNT_IDS: !Join [ ",", !Ref TargetAccountIds ]
+      Role: !GetAtt ShareAMIHandlerLambdaRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+          import logging
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          ec2 = boto3.client('ec2')
+          sns_client = boto3.client('sns')
+
+          TARGET_ACCOUNT_IDS = os.environ['TARGET_ACCOUNT_IDS']
+          SNS_TOPIC_ARN = os.environ['SNS_TOPIC_ARN']
+
+          def lambda_handler(event, context):
+            image_id = event['ami_id']
+            logger.info(f'AMI ID: {image_id}')
+
+            response = ec2.modify_image_attribute(
+              ImageId=image_id,
+              OperationType='add',
+              Attribute='launchPermission',
+              UserIds=TARGET_ACCOUNT_IDS.split(",")
+            )
+            logger.info('AMI Shared')
+
+            # Send success email to target account email address
+            sns_client.publish(
+              TargetArn = SNS_TOPIC_ARN,
+              Subject = f'New AMI ({image_id}) has been successfully shared',
+              Message = f'AMI ID: {image_id}\n\nTarget Accounts: {TARGET_ACCOUNT_IDS}\n\nA new AMI ({image_id}) has been created and successfully shared with the accounts above.\n\nThank you.'
+            )
+            logger.info('Published to SNS Topic')
+
+            return {
+              'statusCode': 200,
+              'body': 'Successfully shared AMI'
+            }
 
   ShareAMIHandlerLambdaRole:
     Type: AWS::IAM::Role
@@ -266,25 +482,39 @@ Resources:
             - lambda.amazonaws.com
           Action:
           - sts:AssumeRole
-      Path: /blog/
-      ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-      - PolicyName: lambdaExecution-ShareAMIHandler
-        PolicyDocument:
-          Version: 2012-10-17
-          Statement:
-          - Effect: Allow
-            Action:
-            - ec2:ModifyImageAttribute
-            Resource: !Sub arn:aws:ec2:${AWS::Region}::image/*
-            Condition:
-              StringEquals:
-                "ec2:ResourceTag/CreatedBy": "EC2 Image Builder"
-          - Effect: Allow
-            Action:
-            - sns:Publish
-            Resource: !Ref TargetAccountSNSEmailTopic
+      Path: /
+
+  ShareAMIPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - ec2:ModifyImageAttribute
+          Resource: !Sub arn:${AWS::Partition}:ec2:${AWS::Region}::image/*
+          Condition:
+            StringEquals:
+              "ec2:ResourceTag/CreatedBy": "EC2 Image Builder"
+        - Effect: Allow
+          Action:
+          - sns:Publish
+          Resource: !Ref TargetAccountSNSEmailTopic
+        # https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/iam-identity-based-access-control-cwl.html
+        - Effect: Allow
+          Action:
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Resource: !GetAtt ShareAMIHandlerLogGroup.Arn
+      Roles:
+        - !Ref ShareAMIHandlerLambdaRole
+
+  ShareAMIHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join ['/', ['/aws/lambda', !Ref ShareAMIHandler]]
+      RetentionInDays: !Ref LambdaCloudWatchLogGroupRetentionInDays
 
   TargetAccountSNSEmailTopic:
     Type: AWS::SNS::Topic
