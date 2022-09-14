@@ -52,9 +52,25 @@ This solution deploys the following components:
 
 ### Deployment Steps
 
-Deploy the CloudFormation Stack found in [template.yaml](./template.yaml), entering the parameters accordingly.
+The template that deploys the solution can be found at [template.yaml](./template.yaml).
 
-Make sure to confirm the the SNS Topic Subscription Email sent to the `ApproverEmail` and `TargetAccountEmail` specified.
+If you're using the AWS Console, follow the instructions at [AWS CloudFormation documentation: Creating a stack on the AWS CloudFormation console](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-create-stack.html).
+
+If you're using the AWS CLI, follow the instructions at [AWS CloudFormation documentation: Using the AWS Command Line Interface](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-using-cli.html). For a sample command, run the following, replacing the parameters accordingly. You can also override additional parameters.
+
+```bash
+aws cloudformation deploy \
+  --template-file ./template.yaml \
+  --stack-name ec2-image-builder-approver-notifications \
+  --parameter-overrides ApproverEmail=<REPLACE_WITH_EMAIL_ADDRESS> IAMPrincipalAssumeRoleARN=<REPLACE_WITH_IAM_PRINCIPAL_ARN> TargetAccountEmail=<REPLACE_WITH_EMAIL_ADDRESS> TargetAccountIds=<REPLACE_WITH_ACCOUNT_ID> LambdaCloudWatchLogGroupRetentionInDays=<REPLACE_WITH_VALID_DAYS>
+# Example below where the IAMPrincipalAssumeRoleARN is the ARN belonging to an AWS IAM Identity Center (successor to AWS Single Sign-On) Federated User
+aws cloudformation deploy \
+  --template-file ./template.yaml \
+  --stack-name ec2-image-builder-approver-notifications \
+  --parameter-overrides ApproverEmail=example1@example.com IAMPrincipalAssumeRoleARN=arn:aws:sts::123456789012:assumed-role/example/example TargetAccountEmail=example2@example.com TargetAccountIds=123456789012 LambdaCloudWatchLogGroupRetentionInDays=30
+```
+
+After the stack is deployed, make sure to confirm the the SNS Topic Subscription Email sent to the `ApproverEmail` and `TargetAccountEmail` specified.
 
 ## Testing the solution
 
