@@ -67,7 +67,7 @@ aws cloudformation deploy \
 aws cloudformation deploy \
   --template-file ./template.yaml \
   --stack-name ec2-image-builder-approver-notifications \
-  --parameter-overrides ApproverEmail=example1@example.com IAMPrincipalAssumeRoleARN=arn:aws:sts::123456789012:assumed-role/example/example TargetAccountEmail=example2@example.com TargetAccountIds=123456789012 LambdaCloudWatchLogGroupRetentionInDays=30
+  --parameter-overrides ApproverEmail=example1@example.com IAMPrincipalAssumeRoleARN=arn:aws:sts::123456789012:assumed-role/example/example TargetAccountEmail=example2@example.com TargetAccountIds=987654321012 LambdaCloudWatchLogGroupRetentionInDays=30
 ```
 
 After the stack is deployed, make sure to confirm the the SNS Topic Subscription Email sent to the `ApproverEmail` and `TargetAccountEmail` specified.
