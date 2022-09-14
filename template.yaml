@@ -4,6 +4,12 @@ Description: >-
   After Golden Images are built from EC2 Image Builder Pipelines, a manual approval step
   is added before AMIs are shared to different accounts
 
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - W2030 # CloudWatch Log Group retention values retrieved from https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html
+
 Parameters:
   NamingPrefix:
     Type: String
@@ -343,7 +349,6 @@ Resources:
               AWS: !Ref IAMPrincipalAssumeRoleARN
             Action:
               - sts:AssumeRole
-      Path: /
 
   ApproverSSMExecutePolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -565,6 +570,8 @@ Resources:
           Condition:
             StringEquals:
               "ec2:ResourceTag/CreatedBy": "EC2 Image Builder"
+            StringLike:
+              "ec2:ResourceTag/Ec2ImageBuilderArn": !Sub arn:${AWS::Partition}:imagebuilder:${AWS::Region}:${AWS::AccountId}:image/${EC2ImageBuilderRecipe.Name}/* # use a wildcard because versions may change
         - Effect: Allow
           Action:
           - sns:Publish
