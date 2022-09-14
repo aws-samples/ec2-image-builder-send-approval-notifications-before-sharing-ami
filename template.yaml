@@ -570,6 +570,8 @@ Resources:
           Condition:
             StringEquals:
               "ec2:ResourceTag/CreatedBy": "EC2 Image Builder"
+            StringLike:
+              "ec2:ResourceTag/Ec2ImageBuilderArn": !Sub arn:${AWS::Partition}:imagebuilder:${AWS::Region}:${AWS::AccountId}:image/${EC2ImageBuilderRecipe.Name}/* # use a wildcard because versions may change
         - Effect: Allow
           Action:
           - sns:Publish
