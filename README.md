@@ -62,12 +62,12 @@ If you're using the AWS CLI, follow the instructions at [AWS CloudFormation docu
 aws cloudformation deploy \
   --template-file ./template.yaml \
   --stack-name ec2-image-builder-approver-notifications \
-  --parameter-overrides ApproverEmail=<REPLACE_WITH_EMAIL_ADDRESS> IAMPrincipalAssumeRoleARN=<REPLACE_WITH_IAM_PRINCIPAL_ARN> TargetAccountEmail=<REPLACE_WITH_EMAIL_ADDRESS> TargetAccountIds=<REPLACE_WITH_ACCOUNT_ID>
+  --parameter-overrides ApproverEmail=<REPLACE_WITH_EMAIL_ADDRESS> IAMPrincipalAssumeRoleARN=<REPLACE_WITH_IAM_PRINCIPAL_ARN> TargetAccountEmail=<REPLACE_WITH_EMAIL_ADDRESS> TargetAccountIds=<REPLACE_WITH_ACCOUNT_ID> LambdaCloudWatchLogGroupRetentionInDays=<REPLACE_WITH_VALID_DAYS>
 # Example below where the IAMPrincipalAssumeRoleARN is the ARN belonging to an AWS IAM Identity Center (successor to AWS Single Sign-On) Federated User
 aws cloudformation deploy \
   --template-file ./template.yaml \
   --stack-name ec2-image-builder-approver-notifications \
-  --parameter-overrides ApproverEmail=example1@example.com IAMPrincipalAssumeRoleARN=arn:aws:sts::123456789012:assumed-role/example/example TargetAccountEmail=example2@example.com TargetAccountIds=123456789012
+  --parameter-overrides ApproverEmail=example1@example.com IAMPrincipalAssumeRoleARN=arn:aws:sts::123456789012:assumed-role/example/example TargetAccountEmail=example2@example.com TargetAccountIds=123456789012 LambdaCloudWatchLogGroupRetentionInDays=30
 ```
 
 After the stack is deployed, make sure to confirm the the SNS Topic Subscription Email sent to the `ApproverEmail` and `TargetAccountEmail` specified.
