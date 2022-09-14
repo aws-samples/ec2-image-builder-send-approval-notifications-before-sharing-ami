@@ -349,7 +349,6 @@ Resources:
               AWS: !Ref IAMPrincipalAssumeRoleARN
             Action:
               - sts:AssumeRole
-      Path: /
 
   ApproverSSMExecutePolicy:
     Type: AWS::IAM::ManagedPolicy
