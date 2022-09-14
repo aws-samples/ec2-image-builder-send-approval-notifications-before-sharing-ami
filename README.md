@@ -58,7 +58,7 @@ If you're using the AWS Console, follow the instructions at [AWS CloudFormation 
 
 If you're using the AWS CLI, follow the instructions at [AWS CloudFormation documentation: Using the AWS Command Line Interface](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-using-cli.html). For a sample command, run the following, replacing the parameters accordingly. You can also override additional parameters.
 
-```
+```bash
 aws cloudformation deploy \
   --template-file ./template.yaml \
   --stack-name ec2-image-builder-approver-notifications \
