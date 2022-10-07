@@ -25,7 +25,7 @@ This solution deploys the following components:
 
   * An AWS Lambda function subscribed to the SNS topic that Image Builder publishes to. This Lambda function retrieves the AMI ID and Name and starts the Automation execution.
 
-* Aautomation Document and SNS topic
+* Automation Document and SNS topic
 
   * An AWS Systems Manager Automation Document that contains 2 steps. The first step is a manual approval step. The second step is a Lambda invocation step that shares the AMI.
   * An Amazon SNS Topic that the Automation above publishes to. This topic has email subscribers.
