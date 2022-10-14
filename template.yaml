@@ -4,12 +4,6 @@ Description: >-
   After Golden Images are built from EC2 Image Builder Pipelines, a manual approval step
   is added before AMIs are shared to different accounts
 
-Metadata:
-  cfn-lint:
-    config:
-      ignore_checks:
-        - W2030 # CloudWatch Log Group retention values retrieved from https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html
-
 Parameters:
   NamingPrefix:
     Type: String
