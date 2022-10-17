@@ -74,7 +74,7 @@ After the stack is deployed, make sure to confirm the the SNS Topic Subscription
 
 ## Testing the solution
 
-Follow the instructions at [the blog page](https://aws.amazon.com/blogs/compute/adding-approval-notifications-to-ec2-image-builder-before-sharing-amis/) to test the solution.
+Follow the instructions at [the blog page](https://aws.amazon.com/blogs/compute/adding-approval-notifications-to-ec2-image-builder-before-sharing-amis-2/) to test the solution.
 
 ## Clean up
 
@@ -82,7 +82,7 @@ Once you're done, you can delete the solution by navigating to the [AWS CloudFor
 
 In addition, don't forget to delete the following artefacts too:
 
-* Deregister the AMIs that were created and shared.
+* Deregister the AMIs that were created and shared. Follow the steps at [AWS documentation: Deregister your Linux AMI](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/deregister-ami.html).
 
 ## Cost of the solution
 
