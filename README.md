@@ -82,7 +82,7 @@ Once you're done, you can delete the solution by navigating to the [AWS CloudFor
 
 In addition, don't forget to delete the following artefacts too:
 
-* Deregister the AMIs that were created and shared.
+* Deregister the AMIs that were created and shared. Follow the steps at [AWS documentation: Deregister your Linux AMI](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/deregister-ami.html).
 
 ## Cost of the solution
 
