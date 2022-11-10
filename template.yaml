@@ -368,7 +368,7 @@ Resources:
       cfn_nag:
         rules_to_suppress:
           - id: W84
-            reason: Logs do not contain sensitve data.
+            reason: Logs do not contain sensitive data.
 
   #=================================#
   # SSM Automation Document Resources
