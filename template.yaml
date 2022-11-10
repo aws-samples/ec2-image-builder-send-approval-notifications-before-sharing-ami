@@ -213,6 +213,7 @@ Resources:
       Description: This lambda triggers an SSM Automation Document with a Approval Step
       Environment:
         Variables:
+          SNS_TOPIC_ARN: !Ref ApproverSNSEmailTopic
           SSM_DOCUMENT_NAME: !Ref ManualApprovalSSMDocument
       Role: !GetAtt StartAutomationExecutionHandlerLambdaRole.Arn
       Code:
@@ -224,14 +225,39 @@ Resources:
           logger = logging.getLogger()
           logger.setLevel(logging.INFO)
 
-          client = boto3.client('ssm')
+          ssm_client = boto3.client('ssm')
+          sns_client = boto3.client('sns')
 
+          SNS_TOPIC_ARN = os.environ['SNS_TOPIC_ARN']
           SSM_DOCUMENT_NAME = os.environ['SSM_DOCUMENT_NAME']
 
           def lambda_handler(event, context):
             ib_notification = json.loads(event['Records'][0]['Sns']['Message'])
 
             if ib_notification['state']['status'] != 'AVAILABLE':
+              status = ib_notification['state']['status']
+              logger.info(f'Image Builder Pipeline Status: {status}')
+              source_pipeline_arn = ib_notification['sourcePipelineArn']
+              build_execution_id = ib_notification['buildExecutionId']
+              message = f'Source Pipeline ARN: {source_pipeline_arn}.\nBuild Execution Id: {build_execution_id}\n\nPlease investigate the Image Builder logs. Thank you.'
+
+              if 'reason' in ib_notification['state']:
+                reason_formatted = f"Reason: {ib_notification['state']['reason']}\n"
+                message = reason_formatted + message
+              try:
+                sns_client.publish(
+                  TargetArn = SNS_TOPIC_ARN,
+                  Subject = f'Image Builder Pipeline Status: {status}',
+                  Message = message
+                )
+                logger.info('Published to SNS Topic')
+              except Exception as e:
+                logger.error(e)
+                return {
+                  'statusCode': 500,
+                  'body': 'Something went wrong went publishing to the SNS Topic'
+                }
+
               warning_message = 'No action taken. EC2 Image not available.'
               logging.warning(warning_message)
               return {
@@ -246,7 +272,7 @@ Resources:
 
             # Trigger SSM Automation Document
             try:
-              client.start_automation_execution(
+              ssm_client.start_automation_execution(
                 DocumentName = SSM_DOCUMENT_NAME,
                 Parameters = {
                   'amiId': [
@@ -313,6 +339,11 @@ Resources:
               iam:PassedToService: ssm.amazonaws.com
             StringLike:
               iam:AssociatedResourceARN: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:automation-definition/${ManualApprovalSSMDocument}*
+        # SNS publish permissions for Image Builder Pipeline failures
+        - Effect: Allow
+          Action:
+          - sns:Publish
+          Resource: !Ref ApproverSNSEmailTopic
         # https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/iam-identity-based-access-control-cwl.html
         - Effect: Allow
           Action:
@@ -432,7 +463,9 @@ Resources:
             Resource: !Ref ApproverSNSEmailTopic
             Condition:
               StringNotEquals:
-                aws:PrincipalArn: !GetAtt AutomationServiceRole.Arn
+                aws:PrincipalArn:
+                  - !GetAtt AutomationServiceRole.Arn
+                  - !GetAtt StartAutomationExecutionHandlerLambdaRole.Arn
       Topics:
         - !Ref ApproverSNSEmailTopic
 
