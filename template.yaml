@@ -149,7 +149,7 @@ Resources:
       cfn_nag:
         rules_to_suppress:
           - id: W60
-            reason: Flow Log not required for blog since only the CloudWatch agent is instsalled on the launched EC2 instance
+            reason: Flow Log not required for blog since only the CloudWatch agent is installed on the launched EC2 instance
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -621,7 +621,7 @@ Resources:
       cfn_nag:
         rules_to_suppress:
           - id: W84
-            reason: Logs do not contain sensitve data.
+            reason: Logs do not contain sensitive data.
 
   TargetAccountSNSEmailTopic:
     Type: AWS::SNS::Topic
