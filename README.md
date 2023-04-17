@@ -69,7 +69,7 @@ aws cloudformation deploy \
 aws cloudformation deploy \
   --template-file ./template.yaml \
   --stack-name ec2-image-builder-approver-notifications \
-  --parameter-overrides ApproverEmail=glennchi@amazon.com IAMPrincipalAssumeRoleARN=arn:aws:sts::123456789012:assumed-role/example/example TargetAccountEmail=example2@example.com TargetAccountIds=987654321012 LambdaCloudWatchLogGroupRetentionInDays=30 \
+  --parameter-overrides ApproverEmail=glennchi@amazon.com IAMPrincipalAssumeRoleARN=arn:aws:sts::123456789012:assumed-role/example/example TargetAccountEmail=example2@example.com TargetAccountIds=111122223333 LambdaCloudWatchLogGroupRetentionInDays=30 \
   --capabilities CAPABILITY_IAM
 ```
 
